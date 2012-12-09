@@ -1,0 +1,10 @@
+//
+// Prefix header for all source files of the 'Bidrasil' target in the 'Bidrasil' project
+//
+
+#ifdef __OBJC__
+	#import <Foundation/Foundation.h>
+	#import <UIKit/UIKit.h>
+#endif
+
+// vim:tabstop=4 shiftwidth=4 syntax=objc

@@ -1,0 +1,604 @@
+h1. API cliente/servidor
+
+{{>toc}}
+
+La comunicación con el servidor se realizará mediante formato JSON. El cliente iniciará la comunicación contra unas URLs almacenadas en el binario que seguirán un patrón definido por este documento.
+
+h1. API
+
+h2. Navegación del índice
+
+<pre><PREFIX>/<LANG>/categories.json
+<PREFIX>/<LANG>/categories/X.json
+<PREFIX>/<LANG>/categories/X.json?page=Y
+</pre>
+
+Parámetros de entrada:
+* *X*: Indica el número de categoría que se solicita el cliente. Como caso especial, la categoría cero representa el índice de la guía con enlaces a otros. Si el cliente especifica un número inválido, el servidor responderá con un conjunto de elementos vacío.
+* *page=Y*: Parámetro opcional usado para solicitar páginas de una categoría con muchos elementos. Si el cliente no lo especifica o *Y* es cero, significa que se está pidiendo información sobre la colección de manera genérica. [[API_clienteservidor#Paginación-de-datos|Ver la sección de paginación para más detalles]].
+
+JSON devuelto:
+* [[API_clienteservidor#Categorías-de-primer-nivel|Si la petición se realiza sin el parámetro X]], el servidor devolverá las categorías de primer nivel, sin información de paginación ni navegación.
+* [[API_clienteservidor#Categoría-completa|Si la petición se realiza sin el parámetro de paginación]], el servidor devolverá la sección completa, o bien devolverá información de paginación más la primera página de los resultados.
+* [[API_clienteservidor#Categoría-paginada|Si la petición se realiza con el parámetro de paginación]], el servidor devolverá la página correspondiente.
+
+h2. Solicitando datos sobre personas y entidades
+
+<pre><PREFIX>/<LANG>/entities/X.json
+<PREFIX>/<LANG>/people/X.json
+</pre>
+
+Parámetros de entrada:
+* *X*: Entero positivo que se corresponderá con el identificador de la entidad o de la persona.
+
+[[API_clienteservidor#JSON-personas-y-entidades|JSON devuelto]]:
+* En el caso de la petición inicial sin caché, el servidor devolverá el registro completo junto con las relaciones.
+* Si la información no ha cambiado, el servidor puede devolver en lugar de los datos un atributo indicando que no ha habido cambios, si bien las relaciones se seguirán devolviendo ya que no se cachean y no hay forma de saber si han cambiado o no desde la última petición.
+
+
+h2. Búsqueda remota
+
+h3. Solicitud global
+
+<pre><PREFIX>/<LANG>/site/search.json?q=X&lat=Y&lon=Z
+</pre>
+
+Parámetros de entrada:
+* *q=X*: Término de búsqueda para realizar, siempre presente.
+* *lat=Y*: Parámetro opcional, si está presente indica la latitud de la persona que realiza la búsqueda en formato decimal.
+* *lon=Z*: Parámetro opcional, si está presente indica la longitud de la persona que realiza la búsqueda en formato decimal.
+
+[[API_clienteservidor#JSON-búsqueda-inicial|JSON devuelto]]:
+* El JSON estará segmentado por grupos, una para cada tipo de resultados devueltos, mas información de paginación para cada tipo si es necesario, lo que podría llevar al cliente a realizar la solicitud detallada por tipo.
+
+h3. Solicitud por posición
+
+<pre><PREFIX>/<LANG>/site/geosearch.json?q=X&lat=Y&lon=Z
+</pre>
+
+Parámetros de entrada:
+* *q=X*: Término de búsqueda para realizar, siempre presente.
+* *lat=Y*: Indica la latitud de la persona que realiza la búsqueda en formato decimal.
+* *lon=Z*: Indica la longitud de la persona que realiza la búsqueda en formato decimal.
+
+[[API_clienteservidor#JSON-búsqueda-inicial|JSON devuelto]]:
+* El JSON estará segmentado por grupos, una para cada tipo de resultados devueltos, mas información de paginación para cada tipo si es necesario, lo que podría llevar al cliente a realizar la solicitud detallada por tipo.
+
+h3. Solicitud detallada por tipo
+
+<pre><PREFIX>/<LANG>/site/search.json?q=X&lat=Y&lon=Z&page=W&type=U&size=V
+</pre>
+
+Esta petición siempre se realiza tras realizar la solicitud global. Debido a que es una petición que continúa la global, los parámetros *X*, *Y* y *Z* quedarán fijos y serán repetidos por el cliente. En caso de que alguno cambiase, el cliente volvería a solicitar primero la petición global.
+
+Parámetros de entrada adicionales:
+* *page=W*: Parámetro usado para solicitar páginas sucesivas del resultado de una búsqueda. Si está presente, el parámetro de tipo también lo estará. [[API_clienteservidor#Paginación-de-datos|Ver la sección de paginación para más detalles]].
+* *type=U*: Parámetro usado para indicar el tipo de la búsqueda realizada, será una cadena de texto estilo, *people* o *entities* que vendrá determinada por el atributo *item_type* del [[API_clienteservidor#JSON-búsqueda-inicial|resultado de la búsqueda inicial]].
+* *size=V*: Parámetro usado para indicar el número de resultados que se desea obtener. Este valor se obtiene de la solicitud global de búsqueda en el atributo *total_results* del [[API_clienteservidor#JSON-búsqueda-inicial|resultado de la búsqueda inicial]].
+
+[[API_clienteservidor#JSON-búsqueda-detallada|JSON devuelto]]:
+* Se devuelve un rango de respuesta de la búsqueda más información de paginación.  [[API_clienteservidor#Paginación-de-datos|Ver la sección de paginación para más detalles]]
+
+
+h1. Paginación de datos
+
+Debido a los requisitos de interfaz de iOS para mostrar una tabla única y contínua, se ha de simular la paginación de una manera que permita hacer scroll por esta tabla aunque sus datos no estén cargados todavía. Los elementos que permitan paginación dispondrán de dos versiones del JSON devuelto, una para una página específica seleccionada, y otra para el resultado de la lista entera (que opcionalmente puede incluir la primera página).
+
+El JSON de la colección indicará el número total de elementos y el tamaño de cada página o bloque solucitado al servidor. Además la página de colección puede incluir información sobre el índice rápido de la tabla. El índice rápido es un array de cadenas que relacionará una cadena con una posición numérica en la lista. El usuario puede saltar directamente a cadena. Las cadenas no necesitan estar ordenadas (aunque deben ser únicas) y pueden ser omitidas letras si por ejemplo no tienen representación en la tabla.
+
+El cliente siempre solicitará los datos del JSON de colección para crear una tabla del tamaño apropiado. Si durante la navegación el tamaño de la lista se modifica (hay inserciones/borrados), el cliente perderá la sincronización.  Simplemente intentará tratarlo de la mejor manera posible, mostrando celdas vacías o llegando al final de la lista y no permitiendo continuar aunque haya más datos. La siguiente vez que el cliente refresque la información de la lista, se volverá a solicitar las filas de la paginación.
+
+Dado que los JSON devueltos serán siempre un diccionario, el cliente podrá reconocer por el tipo de etiquetas si la petición inicial de una colección requiere más peticiones secundarias. Como ejemplo, el siguiente fragmento podría valer como el JSON de una categoría que se devuelve entera siempre, como podría ser el índice:
+
+<pre><code class="javascript">{
+	"categories": [N1, N2, ..., N]
+}</code></pre>
+
+En el caso de una categoría que necesitase ser paginada, el servidor podría devolver lo siguiente para la primera página:
+<pre><code class="javascript">{
+	"categories": [N1, N2, ..., N20],
+	"pagination": [379, 20, 0]
+}</code></pre>
+En este caso el servidor estaría indicando que las entradas de categorías devueltas son sólo una parte. El atributo *pagination*, siempre presente cuando el servidor devuelve resultados parciales, indicará en tres valores el total de elementos de la lista, el número de entradas que se devuelven en cada paginación, y el índice que tendría el primer elemento del resultado parcial en la lista completa (en el caso de la primera página siempre será cero). Con estos atributos si el usuario desplaza la lista y solicita de manera implícita la siguiente página, el cliente realizaría la llamada:
+<pre><PREFIX>/<LANG>/categories/X.json?page=2</pre>
+Y ésta sería respondida de la siguiente manera por el servidor:
+<pre><code class="javascript">{
+	"categories": [N1, N2, ..., N20],
+	"pagination": [379, 20, 20]
+}</code></pre>
+
+h2. Error de paginación
+
+En el caso de que el cliente _se pasase_ de la lista y solicitase una página inexistente, el resultado del servidor será la lista vacía con un índice de tabla negativo. No hace falta enviar el atributo de elementos vacío, basta con el de paginación:
+<pre><code class="javascript">{
+	"pagination": [379, 20, -1]
+}</code></pre>
+
+h2. Indexado rápido
+
+En dispositivos iOS se permite mostrar un índice en las tablas, que resulta especialmente útil si la tabla contiene muchos elementos y se hace largo hacer scroll de todas. El índice consiste en cadenas de texto que se muestran verticalmente en el lateral de la tabla. El usuario puede tocar en una de las cadenas y la tabla saltará directamente a esa parte de la tabla. Para soportar esta característica, el servidor puede devolver opcionalmente el atributo *quick_index* cuando devuelve la información sobre una colección (se ignorará en las páginas individuales, ya que no tiene sentido que cambie).
+
+El atributo *quick_index* será un array de parejas. Cada pareja será otro array donde el primer elemento es una cadena de texto y el segundo elemento es un entero que indexará la primera celda de la tabla que empieza por esa cadeba. No hay restricción en cuanto al número de elementos que debe tener *quick_index*, ni las cadenas deben ser únicas. Según el tamaño de la pantalla (iPad vs iPhone) el sistema operativo se encargará de flitrarlo todo y mostrar más o menos cadenas únicas al usuario. Ejemplo:
+<pre><code class="javascript">{
+	"categories": [N1, N2, ..., N20],
+	"quick_index": [["A", 0], ["K", 180], ["4", 234], ["7", 333]],
+	"pagination": [379, 20, 0]
+}</code></pre>
+
+Se adjunta al wiki una captura de pantalla de una aplicación no relacionada que muestra el equivalente al quick_index usando cadenas, y repetidas. La captura de pantalla es el resultado de mostrar la siguiente lista de cadenas (nótese las repeticiones): (Ad, Ch, Co, Co, Ev, Ga, iA, Im, Im, iT, iT, Ma, Ma, Me, Me, Mo, Mo, Of, Ph, Ph, Pr, Pu, Qu, Qu, Se, Sh, Sp, Sp, Sp, Te, We).
+
+
+h1. JSON
+
+h2. Atributos comunes
+
+Descripción de los atributos genéricos o comunes que se repiten en todas partes. Se describen aquí para no repetirlos en todas partes. En cualquier bloque de JSON devuelto se indicarán qué atributos son opcionales o condicionados por los parámetros enviados por el cliente.
+
+* *name*: cadena de texto libre mostrada al usuario.
+* *id*: valor numérico con el identificador del elemento.
+* *quick_index*: información de acceso rápido a una tabla grande. [[API_clienteservidor#Indexado-rápido|Ver la sección de indexado rápido para más detalles]].
+* *pagination*: información sobre paginación, presente en colecciones grandes. [[API_clienteservidor#Paginación-de-datos|Ver la sección de paginación para más detalles]].
+* *invalid_id*: tal y como se menciona en la sección sobre [[API_clienteservidor#Parámetros-enviados-en-las-cabeceras|Parámetros enviados en las cabeceras]], este parámetro opcional puede aparecer en prácticamente cualquier JSON, e indica que el servidor no ha aceptado la _cookie_ *bidrasil_id* enviada por el cliente.
+
+h2. JSON navegación del índice
+
+Attributos comunes:
+* *item_type*: cadena de texto que indica qué tipo tiene el elemento, a elegir entre:
+** *category*: al seleccionar el elemento se abrirá una página de navegación hija.
+** *person*: muestra la ficha de una persona.
+** *entity*: muestra la ficha de una entidad.
+* *indent*: booleano opcional, por defecto a false. Si se indica como true, la fila especificada se mostrará al usuario visualmente con un pequeño sangrado.
+
+h3. Categorías de primer nivel
+
+Respuesta a [[API_clienteservidor#Navegación-del-índice|la petición de las categorías de primer nivel]]:
+
+<pre><code class="javascript">{
+	"categories" : [
+		{
+			"name": string,
+			"item_type": string,
+			"id": int
+		}, ...
+	],
+	"quick_index" (opcional): [[string, int], ...],
+	"invalid_id" (opcional): true
+}</code></pre>
+
+No necesita de sección navigation ni de paginación.
+
+
+h3. Categoría completa
+
+Respuesta a [[API_clienteservidor#Navegación-del-índice|la petición de una categoría que no necesita paginación]]:
+
+<pre><code class="javascript">{
+	"navigation" (opcional): [
+		{
+			"name": string,
+			"item_type": string,
+			"id": int
+		}, ...
+	],
+	"categories": [
+		{
+			"name": string,
+			"item_type": string,
+			"indent" (opcional): bool,
+			"id": int
+		}, ...
+	],
+	"quick_index" (opcional): [[string, int], ...],
+	"pagination" (opcional): [int, int, int],
+	"invalid_id" (opcional): true
+}</code></pre>
+
+La sección *navigation* nunca se incluye en la versión paginada ya que no cambia. La navegación consiste en varias entradas que llevan a las _subcategorías_ de la categoría actual o bien a categorías _gemelas_ a la actual y que el usuario puede encontrar interesantes. La tabla de navegación se mostrará al comienzo de la tabla como filas pulsables por el usuario y tendrán un aspecto especial distintivo.
+
+h3. Categoría paginada
+
+Respuesta a [[API_clienteservidor#Navegación-del-índice|la petición de una categoría con paginación]]:
+
+<pre><code class="javascript">{
+	"categories" (opcional): [
+		{
+			"name": string,
+			"item_type": string,
+			"indent" (opcional): bool,
+			"id": int
+		}, ...
+	],
+	"pagination": [int, int, int],
+	"invalid_id" (opcional): true
+}</code></pre>
+
+Se considera que el atributo *categories* es opcional en la paginación dado que en caso de que el cliente solicite una página inválida el servidor sólo devolverá el atributo *pagination* con el parámetro de índice a -1. [[API_clienteservidor#Error-de-paginación|Ver error de paginación para más detalles]].
+
+h2. JSON personas y entidades
+
+Aunque en el API las personas y entidades [[API_clienteservidor#Solicitando-datos-sobre-personas-y-entidades|se acceden por medio de dos URLs diferentes]], y visualmente se puedan representar de manera distinta, internamente los datos son tratados de manera prácticamente igual. Por lo tanto el JSON devuelto es básicamente el mismo. Sólo se cambia el nombre del atributo que contiene el diccionario de atributos, donde casi todos son opcionales y se incluyen o no según el tipo de recurso. El significado de la mayoría de los atributos de las fichas resulta obvio tras consultar [[Soporte_de_atributos|el soporte de atributos]].
+
+<pre><code class="javascript">{
+	"person"|"entity" (opcional): {
+		"share_url" (optional):    string,
+		"first_name" (optional):   string,
+		"last_name" (optional):    string,
+		"works_for" (optional): [[string, string], ...],
+		"address" (optional): [string, string, string, string, float, float],
+		"image" (optional): string,
+		"update_date" (optional): int,
+		"email" (optional):   [string, ...],
+		"web" (optional):     [string, ...],
+		"phone" (optional):   [string, ...],
+		"fax" (optional):     [string, ...],
+		"twitter" (optional): [string, ...],
+		"facebook" (optional): [string, ...],
+		"linkedin" (optional): [string, ...]
+	},
+	"people" (opcional): [[int, string, string, string], ...],
+	"relationships": [
+		{
+			"section_name": string,
+			"item_type": string,
+			"has_more_relationships": bool,
+			"items": [
+				{
+					"id": int,
+					"rows": [[string, string (, float, float)], ...]
+				}, ...
+			]
+		}, ...
+	],
+	"invalid_id" (opcional): true
+}</code></pre>
+
+* *person|entity*: nombre de la etiqueta raíz que contiene el resto de atributos. Es opcional porque si en la petición de la información el parámetro update_date no ha cambiado, el servidor puede evitar devolver esta información.
+* *share_url*: cuando el usuario comparte por correo electrónico la información de un contacto, se genera una vcard y un enlace a la web online. El cliente generará la dirección online a partir del tipo de entidad y el identificador, pero si es necesario el atributo *share_url* puede modificar esta dirección para que sea diferente.
+* *first_name*: en el caso de una persona contiene el nombre, en el caso de una entidad, contiene su nombre completo.
+* *last_name*: en el caso de una persona contiene su apellido, en el caso de una entidad este atributo no aparece.
+* *works_for*: array de parejas de cadenas. Contiene las organizaciones para las que trabaja la persona (el atributo no tiene sentido en una entidad). El formato de las parejas es de *cargo* y *nombre de la organización*. Debido a limitaciones de la agenda de iOS, a la hora de importar la información en la agenda sólo se usará la primera pareja como cargo y organización. Conviene que el servidor envíe como primer elemento del array la pareja de datos importante, pues las otras parejas serán descartadas.
+* *address*: este atributo contiene la información de una dirección que se presenta como bloque al usuario, pero que habitualmente se almacena fragmentada en la agenda. El atributo consiste en un array de hasta seis elementos, todos opcionales (se puede pasar un array con menos elementos). Empezando por la izquierda, su significado es:
+** *dirección/calle*: cadena de texto
+** *código postal*: cadena de texto
+** *ciudad/población*: cadena de texto
+** *provincia*: cadena de texto
+** *latitud*: coordenada en formato decimal
+** *longitud*: coordenada en formato decimal
+* *image*: una cadena que apunta a la URL que contiene la imagen de la persona o entidad.
+* *update_date*: fecha de última actualización del registro completo, almacenada como segundos desde la época (tiempo unix). Esta fecha no se muestra tal cual al usuario, como mucho se formatea en *dd/mm/aaaa*. Su principal uso es ser incluida en la siguiente llamada de la API [[API_clienteservidor#Solicitando-datos-sobre-personas-y-entidades|para que el servidor pueda evitar reenviar los datos de la ficha si no han cambiado]].
+* *email|web|phone|fax|twitter|facebook|linkedin*: todos son arrays de cadenas de texto que contienen el valor correspondiente. En el caso de un email, tocando el elemento el usuario iniciará un correo electrónico. En el caso de una web, se abrirá safari, etc. Para el caso de twitter se debe pasar el nombre de usuario de twitter sin la arroba, (ej: gradha, GonLamperouge, evitxu, etc).
+* *people*: las personas no tienen otras personas relacionadas, pero las entidades pueden mostrar un listado de personas que están asociadas a esa entidad. De manera similar al attributo *address*, el atributo opcional *people* es un array de arrays. El array interno tiene el siguiente formato, donde el último campo es opcional (todos los arrays deben tener tres elementos, pudiendo tener cuatro):
+** *identificador*: entero identificador de la persona, será usado contra el API para obtener sus datos.
+** *cargo*: cadena de texto que mostrará el cargo o puesto que desempeña la persona en la entidad.
+** *nombre completo*: cadena de texto con el nombre completo de la persona.
+** *URL de la imagen* (opcional): dirección de la imagen asociada a la persona, si la hay. En caso de existir, esta URL debe coincidir con la que se obtendría del campo *image* al solicitar el JSON de la persona.
+* *relationships*: tanto las personas como las entidades tienen relaciones con otros elementos. En el caso de las personas, se mostrarán las entidades asociadas con información _desplegada_ (se ve la calle, teléfono, etc), mientras que en el caso de entidades sólo se mostrará el nombre de la entidad relacionada. El atributo *relationships* es obligatorio, si bien puede tener un array vacío en el caso de que la persona/entidad no esté relacionada con nada. Las relaciones van en grupos.
+* *section_name*: siempre presente, indica el nombre del grupo que contiene el resto de relaciones. Cada grupo irá separado de los demás visualmente.
+* *item_type*: tipo de elemento relacionado, uno de *category*, *person* o *entity*, [[API_clienteservidor#JSON-navegación-del-índice|igual que en la navegación del índice]].
+* *has_more_relationships*: Indica si existen más items en esta categoría de relacionados.
+* *items*: array con los diccionarios de cada elemento relacionado, siendo todos del mismo tipo.
+* *rows*: de manera similar al atributo *people*, este array contendrá varios arrays anidados, representando cada uno una _fila_ con datos sobre el elemento relacionado. La primera fila de *rows* contendrá siempre el nombre del elemento relacionado. En el caso de personas, opcionalmente puede haber más filas con atributos de la entidad, a modo de _vista previa_ de la ficha completa.
+*Nota sobre seguridad*: aunque un usuario esté autenticado, el servidor nunca deberá enviar información privada en la información de contacto desplegada de una entidad.
+El formato interno de los arrays de *rows* será siempre una cadena de texto seguida de una cadena de texto o más elementos. La cadena de texto identifica el tipo de fila, sus posibles valores son:
+** *name*: la fila contiene un nombre completo, que se mostrará ocupando la línea entera. El array tendrá por lo tanto dos elementos. El nombre es usado principalmente como primera fila de *rows*, si bien puede aparecer más tarde también. Si el usuario toca la fila, la aplicación abrirá la ficha completa de la entidad relacionada.
+** *address*: la fila contiene una dirección. Las direcciones aparecerán como una cadena de texto con información de geolocalización, así que el array de la fila tendrá dos o cuatro elementos, siendo el segundo elemento la dirección completa, y los dos restantes la latitud y longitud de la misma en formato decimal. La fila tendrá interacción si la latitud/longitud está presente, en caso contrario se abrirá la ficha completa de la entidad relacionada.
+** *phone*: la fila contiene un teléfono como cadena de texto. El usuario puede interaccionar con la fila.
+** *fax*: la fila contiene un número de fax como cadena de texto. Al tocar esta celda se abre la ficha completa de la entidad relacionada.
+** *email*: la fila contiene una dirección de correo electrónico como cadena de texto. El usuario puede interaccionar con la fila.
+** *web*: la fila contiene una dirección web como cadena de texto. El usuario puede interaccionar con la fila.
+** *twitter*: la fila contiene el nombre de usuario de twitter, como cadena de texto. Al tocar esta celda se abre la ficha completa de la entidad relacionada.
+** *facebook*: la fila contiene la dirección de facebook, como cadena de texto. Al tocar esta celda se abre la ficha completa de la entidad relacionada.
+** *linkedin*: la fila contiene la dirección de linkedin, como cadena de texto. Al tocar esta celda se abre la ficha completa de la entidad relacionada.
+
+h2. JSON búsqueda
+
+JSON devueltos en [[API_clienteservidor#Búsqueda-remota|la búsqueda remota]].
+
+h3. JSON búsqueda inicial
+
+<pre><code class="javascript">{
+	"results": [
+		{
+			"name": string,
+			"total_results": int,
+			"item_type": string,
+			"items": [
+				{
+					"id": int,
+					"lines": [string, ...],
+					"geolocation" (opcional): [float, float]
+				}, ...
+			]
+		}, ...
+	],
+	"invalid_id" (opcional): true
+}</code></pre>
+
+A diferencia de [[API_clienteservidor#Paginación-de-datos|una petición de categoría]] que puede devolver opcionalmente paginación por haber más elementos paginados, la búsqueda inicial devolverá en *total_results* el total de resultados que devolverá la búsqueda. Comparando este valor con los resultados devueltos inicialmente se sabrá si existe paginación para la búsqueda. Además, el valor *total_results* es necesario como parámetro (además del tipo) para la búsqueda detallada con resultados paginados.
+
+Además, en caso de haber paginación de datos, el servidor puede devolver en el atributo *items* de la petición inicial los elementos que más le convengan sin tener que ser los que devolvería la primera página de la petición detallada. Es decir, en [[API_clienteservidor#Paginación-de-datos|una petición de categoría]] que devolviese información de paginación, la siguiente petición que hará el cliente será sobre la página dos o superior, mientras que en las búsquedas siempre se pedirá de manera explícita la primera página, y será ésta la que devuelva el valor correcto de *pagination* para el resto de las peticiones.
+
+Esto se hace para que el servidor pueda mostrar en su página inicial de resultados los que más le puedan interesar al usuario por ejemplo en base a su distancia física, mientras que la paginación podría devolver los resultados ordenados alfabéticamente. La ausencia de atributo *pagination* en la búsqueda inicial simplifica al servidor la presentación de resultados evitando realizar una búsqueda completa de todos los datos.
+
+Finalmente, cada grupo de resultados tiene un *item_type* aplicable a todos los *items* que contiene. Este *item_type* será usado de parámetro en siguientes llamadas a la versión paginada de datos. Dado que los elementos devueltos pueden ser de diferentes tipos, se ha optado por representarlos de manera libre mediante un array de cadenas de texto (*lines*) que al menos tendrá una cadena. En caso de haber más, el cliente mostrará todas las siguientes cadenas en siguientes líneas dentro de la misma celda.
+
+En caso de que el item tenga una posición geográfica, se puede incluir su latitud/longitud en el atributo *geolocation*. La distancia se añadirá como última línea de la celda de resultados, y se calculará siempre desde la posición de la búsqueda, no de la posición actual del usuario.
+
+
+h3. JSON búsqueda detallada
+
+Continuación de la llamada anterior, el tipo de los elementos devueltos va codificado en la URL de la petición y no hay grupos. Sin embargo, por simplicidad, también se incluirá el tipo de los elementos en el JSON devuelto. Una búsqueda detallada implica la existencia del atributo *pagination*:
+
+<pre><code class="javascript">{
+	"results": [
+		{
+			"name": string,
+			"pagination": [int, int, int],,
+			"item_type": string,
+			"items": [
+				{
+					"id": int,
+					"lines": [string, ...],
+					"geolocation" (opcional): [float, float]
+				}, ...
+			]
+		}, ...
+	],
+	"invalid_id" (opcional): true
+}</code></pre>
+
+A diferencia de peticiones de paginación de categorías, donde casi siempre la paginación pedirá primero la segunda página, la búsqueda detallada siempre se iniciará por la primera página.
+
+h2. Ejemplos de JSON
+
+Aquí van unos JSON teóricos devueltos por el API:
+
+h3. Ejemplos JSON navegación del índice
+
+* http://www2.irekia.euskadi.net/es/categories.json ([[API_clienteservidor#Categorías-de-primer-nivel|especificación]]):
+<pre><code class="javascript">{
+	"categories": [
+		{
+			"name": "Gobierno Vasco",
+			"item_type": "category",
+			"id": 1
+		}, {
+			"name": "Sociedades Públicas del Sector Industrial",
+			"item_type": "category",
+			"id": 2
+		}, ...
+	]
+}</code></pre>
+
+* http://www2.irekia.euskadi.net/es/categories/66.json ([[API_clienteservidor#Categoría-completa|especificación]]):
+<pre><code class="javascript">{
+	"navigation": [
+		{
+			"name": "Colegios Profesionales de Álava",
+			"item_type": "category",
+			"id": 67
+		}, {
+			"name": "Colegios Profesionales de Bizkaia",
+			"item_type": "category",
+			"id": 68
+		}, {
+			"name": "Colegios Profesionales de Gipuzkoa",
+			"item_type": "category",
+			"id": 69
+		}
+	],
+	"categories": [
+		{
+			"name": "Colegio Oficial de Arquitectos Vasco-Navarro",
+			"item_type": "entity",
+			"id": 1709
+		}, {
+			"name": "Colegio Oficial de Arquitectos Vasco-Navarro (Álaba)",
+			"item_type": "entity",
+			"indent": true,
+			"id": 1195
+		}, ...
+	],
+	"pagination": [105, 11, 0]
+}</code></pre>
+
+* http://www2.irekia.euskadi.net/es/categories/66.json?page=10 ([[API_clienteservidor#Categoría-paginada|especificación]]):
+<pre><code class="javascript">{
+	"categories": [
+		{
+			"name": "Ilustre Colegio de Procuradores de los Tribunales de Gipuzkoa",
+			"item_type": "entity",
+			"id": 1289
+		}, {
+			"name": "Colegio Oficial de Psicólogos de Gipuzkoa",
+			"item_type": "entity",
+			"id": 1290
+		}, ...
+	],
+	"pagination": [105, 11, 99]
+}
+</code></pre>
+
+h3. Ejemplos JSON personas y entidades
+
+* http://www2.irekia.euskadi.net/es/entities/14.json ([[API_clienteservidor#JSON-personas-y-entidades|especificación]]):
+<pre><code class="javascript">{
+	"entity": {
+		"share_url": "http://www2.irekia.euskadi.net/es/entities/14-secretaria-general-coordinacion",
+		"first_name": "Secretaría General de Coordinación",
+		"address": ["Navarra, 2", "01007", "VITORIA-GASTEIZ", "ÁLAVA", 42.8387327, -2.6781098],
+		"update_date": 1306953850,
+		"phone": ["945 017 900"]
+	},
+	"people": [
+		[7379, "Secretaria General de Coordinación", "Hyori Lee",
+			"http://www2.irekia.euskadi.net/images/logo.gif"],
+		[7378, "Director de Coordinación",
+			"Koldobike Maximiñe Uriarte Ruiz de Eguino"],
+		[7381, "Director de Desarrollo Autonómico",
+			"Juan Ignacio Urresola Aretxabala"],
+		[7579, "Directora de la Secretaría del Gobierno y de Relaciones con el Parlamento",
+			"María Jesús San José López",
+			"http://a0.twimg.com/profile_images/1148621245/IMG_4212_normal.jpg"]
+	],
+	"relationships": [
+		{
+			"section_name": "Organización superior",
+			"item_type": "entity",
+			"items": [
+				{
+					"id": 1,
+					"rows": [["name", "Presidencia del Gobierno"]]
+				}
+			]
+		}, {
+			"section_name": "Otras organizaciones",
+			"item_type": "entity",
+			"items": [
+				{
+					"id": 12,
+					"rows": [["name", "Secretaría General de la Presidencia"]]
+				}, {
+					"id": 15,
+					"rows": [["name", "Secretaría General de Acción Exterior"]]
+				}, {
+					"id": 18,
+					"rows": [["name", "Secretaría General de Comunicación"]]
+				}, {
+					"id": 1696,
+					"rows": [["name", "Departamento de Prueba"]]
+				}
+			]
+		}
+	]
+}</code></pre>
+
+* http://www2.irekia.euskadi.net/es/people/7896.json ([[API_clienteservidor#JSON-personas-y-entidades|especificación]]):
+<pre><code class="javascript">{
+	"person": {
+		"share_url": "http://www2.irekia.euskadi.net/es/people/7896-felipe-yanez",
+		"first_name": "Felipe",
+		"last_name": "Yanez",
+		"works_for": [
+			["Subdirector", "Departamento de Prueba"],
+			["Asesor", "Colegio Oficial de Decoradores/Diseñadores de Interior de Álava"]
+		],
+		"address": ["Avda Gasteiz 4", "", "Laguardia", "", 42.6152481, -2.6432649],
+		"update_date": 1306953850,
+		"web": ["http://www.web1.com", "http://www.web2.com"],
+		"email": ["felipe@ej-gv.es"]
+	},
+	"relationships": [
+		{
+			"section_name": "Organizaciones",
+			"item_type": "entity",
+			"items": [
+				{
+					"id": 1696,
+					"rows": [
+						["name", "Departamento de Prueba"],
+						["address", "Navarra, 2\n01007 Vitoria-Gasteiz\nAlava"],
+						["email", "email@dpto.es"],
+						["web", "http://www.web1.com"],
+						["web", "http://www.web2.com"]
+					]
+				}, {
+					"id": 1196,
+					"rows": [
+						["name", "Colegio Oficial de Decoradores/Diseñadores de Interior de Álava"],
+						["address", "Postas, 18 - 5º - departamento 3\n01001 Vitoria Gasteiz"],
+						["phone", "945 232 291"],
+						["fax", "945 232 291"],
+						["email", "dediaraba@codialava.e.telefonica.net"]
+					]
+				}
+			]
+		}
+	]
+}</code></pre>
+
+h3. Ejemplos JSON búsqueda
+
+* http://www2.irekia.euskadi.net/es/search.json?q=corea ([[API_clienteservidor#JSON-búsqueda-inicial|especificación]]):
+<pre><code class="javascript">{
+	"results": [
+		{
+			"name": "Organizaciones",
+			"total_results": 1,
+			"item_type": "entities",
+			"items": [
+				{
+					"id": 1018,
+					"lines": ["Consulado de Corea del Sur"],
+					"geolocation": [43.2637606, -2.9269593]
+				}
+			]
+		}, {
+			"name": "Personas",
+			"total_results": 1,
+			"item_type": "people",
+			"items": [
+				{
+					"id": 6939,
+					"lines": [
+						"Juan Manuel Arana Arechabala",
+						"Cónsul honorario",
+						"Consulado de Corea del Sur"
+					],
+					"geolocation": [43.2637606,-2.9269593]
+				}
+			]
+		}
+	]
+}</code></pre>
+
+* http://www2.irekia.euskadi.net/es/search.json?q=ayuntamiento+alcalde ([[API_clienteservidor#JSON-búsqueda-inicial|especificación]]):
+<pre><code class="javascript">{
+	"results": [
+		{
+			"name": "Personas",
+			"total_results": 1,
+			"item_type": "people",
+			"items": [
+				{
+					"id": 2678,
+					"lines": [
+						"Jesús Barredo Arana",
+						"Alcalde",
+						"Ayuntamiento de Lantarón"
+					]
+				}, ...
+			]
+		}
+	]
+}</code></pre>
+
+* http://www2.irekia.euskadi.net/es/search.json?page=2&q=ayuntamiento+alcalde&type=people&size=30 ([[API_clienteservidor#JSON-búsqueda-detallada|especificación]]):
+<pre><code class="javascript">{
+	"results": [
+		{
+			"name": "Personas",
+			"pagination": [30, 15, 15]
+			"item_type": "people",
+			"items": [
+				{
+					"id": 4203,
+					"lines": [
+						"Tomás Plazaola Muguruza",
+						"Alcalde",
+						"Ayuntamiento de Ordendain"
+					]
+				}, 
+				{ 
+					"id": 4210,
+					"lines": [
+						"Francisco Aierbe Urbiztondo",
+						"Alcalde",
+						"Ayuntamiento de Zaldibia"
+					]
+				}...
+			]
+		}
+	]
+}</code></pre>
+

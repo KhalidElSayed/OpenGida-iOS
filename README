@@ -1,0 +1,52 @@
+
+OpenGida v.1.0 Cliente iOS
+============================
+
+
+El Gobierno Vasco pone a disposición de usuarios, desarrolladores y 
+comunidad en general la aplicación denominada “OpenGida v1.0 iOS ” 
+bajo la Licencia Pública de la Unión Europea 
+“European Union Public Licence – EUPL”. Esta licencia, desarrollada 
+en el seno de la Unión Europea, nació con la intención de ser la 
+licencia bajo la cuál se liberasen los programas y aplicaciones 
+desarrolladas por la Administración Pública y con la característica 
+específica de ser compatible con otras licencias denominadas libres, 
+como la GNU General Public License (GNU/GPL). Estas características 
+dotan, a las aplicaciones así liberadas, de mayor seguridad jurídica 
+y fomentan la interoperabilidad de los servicios de la Administración 
+Electrónica.
+
+The European Union Public Licence http://www.osor.eu/eupl 
+EUPL v.1.1 - Preámbulo 
+EUPL v.1.1 – Licencia
+
+Copyright 2011 eFaber, S.L. 
+Copyrigth 2011 Secretaría General de Comunicación
+    Komunikaziorako Idazkaritza Nagusia 
+    Lehendakaritza. Gobierno Vasco – Eusko Jaurlaritza 
+
+Licencia con arreglo a la EUPL, Versión 1.1 o –en cuanto sean aprobadas por 
+la Comisión Europea– versiones posteriores de la EUPL (la Licencia);
+
+Solo podrá usarse esta obra si se respeta la Licencia. Puede obtenerse una 
+copia de la Licencia en: http://ec.europa.eu/idabc/eupl 
+
+Salvo cuando lo exija la legislación aplicable o se acuerde por escrito, 
+el programa distribuido con arreglo a la Licencia se distribuye TAL CUAL,
+SIN GARANTÍAS NI CONDICIONES DE NINGÚN TIPO, ni expresas ni implícitas. 
+Véase la Licencia en el idioma concreto que rige los permisos y limitaciones 
+que establece la Licencia
+
+Contacto:
+  http://opengida.efaber.net
+  opengida@efaber.net
+
+Licenses
+========
+
+ABContactsHelper: BSD License, https://github.com/gradha/ABContactHelper.
+ASIHTTPRequest: BSD License, https://github.com/gradha/asi-http-request.
+DCIntrospect: MIT license, https://github.com/gradha/DCIntrospect.
+ELHASO-iOS-snippets: MIT + PD, https://github.com/gradha/ELHASO-iOS-snippets.
+JSONKit: BSD License or Apache 2.0, https://github.com/gradha/JSONKit.
+

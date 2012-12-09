@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<array>
+	<string>Komunikazio Irekiko Gida</string>
+	<string>info.html</string>
+	<string>Bilaketak</string>
+	<string>search.html</string>
+	<string>Kontaktuak</string>
+	<string>contacto.html</string>
+	<string>Licencias</string>
+	<array>
+		<string>EUPL</string>
+		<string>licencia_eupl.html</string>
+		<string>ABContactsHelper</string>
+		<string>licencia_abcontactshelper.html</string>
+		<string>ASIHTTPRequest</string>
+		<string>licencia_asihttprequest.html</string>
+		<string>DCIntrospect</string>
+		<string>licencia_dcintrospect.html</string>
+		<string>ELHASO-iOS-snippets</string>
+		<string>licencia_elhasoiossnippets.html</string>
+		<string>JSONKit</string>
+		<string>licencia_jsonkit.html</string>
+		<string>MAZeroingWeakRef</string>
+		<string>licencia_mazeroingweakref.html</string>
+	</array>
+</array>
+</plist>
